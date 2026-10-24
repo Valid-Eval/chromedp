@@ -243,6 +243,15 @@ func (b *Browser) Subscribe(method string) (<-chan jsonv2.Value, func()) {
 	return b.events.subscribe(method)
 }
 
+// SubscribeMany is like [Browser.Subscribe] for several methods, with one
+// queue. The channel gets the events of all the methods in the order that the
+// browser received them. Each value is a JSON object with the fields method
+// and params, because the parameters alone do not name the method. The
+// returned func stops the subscription and closes the channel.
+func (b *Browser) SubscribeMany(methods ...string) (<-chan jsonv2.Value, func()) {
+	return b.events.subscribeMany(methods...)
+}
+
 func (b *Browser) execute(ctx context.Context, method string, params, res any) error {
 	id := atomic.AddInt64(&b.next, 1)
 	lctx, cancel := context.WithCancel(ctx)

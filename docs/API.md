@@ -953,6 +953,7 @@ func NewBrowserTransport(ctx context.Context, tr Transport, opts ...BrowserOptio
 func (b *Browser) Call(ctx context.Context, method string, params, res any) error
 func (b *Browser) Process() *os.Process
 func (b *Browser) Subscribe(method string) (<-chan jsonv2.Value, func())
+func (b *Browser) SubscribeMany(methods ...string) (<-chan jsonv2.Value, func())
 
 type BrowserOption = func(*Browser)
 func WithBrowserDebugf(f func(string, ...any)) BrowserOption
@@ -1122,6 +1123,7 @@ type Selector struct { ... }
 type Target struct { ... }
 func (t *Target) Call(ctx context.Context, method string, params, res any) error
 func (t *Target) Subscribe(method string) (<-chan jsonv2.Value, func())
+func (t *Target) SubscribeMany(methods ...string) (<-chan jsonv2.Value, func())
 
 type Transport interface { ... }
 

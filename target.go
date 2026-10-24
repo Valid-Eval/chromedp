@@ -247,6 +247,15 @@ func (t *Target) Subscribe(method string) (<-chan jsonv2.Value, func()) {
 	return t.events.subscribe(method)
 }
 
+// SubscribeMany is like [Target.Subscribe] for several methods, with one
+// queue. The channel gets the events of all the methods in the order that the
+// target received them. Each value is a JSON object with the fields method and
+// params, because the parameters alone do not name the method. The returned
+// func stops the subscription and closes the channel.
+func (t *Target) SubscribeMany(methods ...string) (<-chan jsonv2.Value, func()) {
+	return t.events.subscribeMany(methods...)
+}
+
 // runtimeEvent handles incoming runtime events.
 func (t *Target) runtimeEvent(ev any) {
 	switch ev := ev.(type) {

@@ -3,12 +3,14 @@ package chromedp
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/chromedp/cdproto"
 	"github.com/chromedp/cdproto/cdp"
+	jsonv2 "github.com/chromedp/cdproto/cdp/jsonv2"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/target"
 )
@@ -238,6 +240,58 @@ func TestSubscribe(t *testing.T) {
 		return
 	}
 	t.Error("the subscription ended without a load event")
+}
+
+func TestSubscribeMany(t *testing.T) {
+	t.Parallel()
+
+	tg, b := &Target{}, &Browser{}
+	tests := []struct {
+		name      string
+		subscribe func(methods ...string) (<-chan jsonv2.Value, func())
+		events    *subscribers
+	}{
+		{name: "Target", subscribe: tg.SubscribeMany, events: &tg.events},
+		{name: "Browser", subscribe: b.SubscribeMany, events: &b.events},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			events, cancel := test.subscribe("Network.requestWillBeSent", "Network.loadingFinished")
+			// The events alternate between the two methods, and a third method
+			// that the subscription does not name comes in between.
+			sent := []string{
+				"Network.requestWillBeSent", "Page.frameNavigated", "Network.loadingFinished",
+				"Network.requestWillBeSent", "Network.loadingFinished",
+			}
+			for i, method := range sent {
+				test.events.publish(method, jsonv2.Value(`{"n":`+strconv.Itoa(i)+`}`))
+			}
+			want := []string{
+				`{"method":"Network.requestWillBeSent","params":{"n":0}}`,
+				`{"method":"Network.loadingFinished","params":{"n":2}}`,
+				`{"method":"Network.requestWillBeSent","params":{"n":3}}`,
+				`{"method":"Network.loadingFinished","params":{"n":4}}`,
+			}
+			for _, w := range want {
+				select {
+				case got := <-events:
+					if string(got) != w {
+						t.Errorf("got %s, want %s", got, w)
+					}
+				case <-time.After(10 * time.Second):
+					t.Fatalf("no event, want %s", w)
+				}
+			}
+
+			cancel()
+			if _, ok := <-events; ok {
+				t.Error("the channel is open after the cancel")
+			}
+		})
+	}
 }
 
 func TestCallInvalidContext(t *testing.T) {
