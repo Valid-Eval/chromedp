@@ -247,6 +247,20 @@ func (t *Target) Subscribe(method string) (<-chan jsonv2.Value, func()) {
 	return t.events.subscribe(method)
 }
 
+// Listen adds fn, which the target calls with each event that it receives,
+// as the typed payload of the event, for example *page.EventLoadEventFired.
+// The target calls fn synchronously in its event loop, in the order of the
+// events, and before it handles the reply to a command that the browser sent
+// after the event. So fn must not block, and it must not send a command and
+// wait for the reply. Canceling ctx stops the calls.
+//
+// Use [Events] to read the events of one method at your own speed. Use Listen
+// when the events of several methods must arrive in order, or when an event
+// must be handled before the action that caused it returns.
+func (t *Target) Listen(ctx context.Context, fn func(ev any)) {
+	t.listen(ctx, eventsOnly(fn))
+}
+
 // runtimeEvent handles incoming runtime events.
 func (t *Target) runtimeEvent(ev any) {
 	switch ev := ev.(type) {

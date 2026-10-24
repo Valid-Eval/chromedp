@@ -951,6 +951,7 @@ type AttributeResult struct { ... }
 type Browser struct { ... }
 func NewBrowserTransport(ctx context.Context, tr Transport, opts ...BrowserOption) (*Browser, error)
 func (b *Browser) Call(ctx context.Context, method string, params, res any) error
+func (b *Browser) Listen(ctx context.Context, fn func(ev any))
 func (b *Browser) Process() *os.Process
 func (b *Browser) Subscribe(method string) (<-chan jsonv2.Value, func())
 
@@ -1121,6 +1122,7 @@ type Selector struct { ... }
 
 type Target struct { ... }
 func (t *Target) Call(ctx context.Context, method string, params, res any) error
+func (t *Target) Listen(ctx context.Context, fn func(ev any))
 func (t *Target) Subscribe(method string) (<-chan jsonv2.Value, func())
 
 type Transport interface { ... }

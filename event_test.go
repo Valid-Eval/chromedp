@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/chromedp/cdproto"
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/cdproto/target"
 )
 
@@ -238,6 +240,63 @@ func TestSubscribe(t *testing.T) {
 		return
 	}
 	t.Error("the subscription ended without a load event")
+}
+
+func TestListen(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := testAllocate(t, "")
+	defer cancel()
+	if err := Do(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	// The browser sends Runtime.consoleAPICalled while it runs the
+	// expression, so before the reply to Runtime.evaluate. The listener runs
+	// in the event loop, so it has the event when Run returns, with no wait.
+	var mu sync.Mutex
+	var got []string
+	replies := 0
+	lctx, lcancel := context.WithCancel(ctx)
+	FromContext(ctx).Target.Listen(lctx, func(ev any) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch ev := ev.(type) {
+		case *runtime.EventConsoleAPICalled:
+			if len(ev.Args) == 1 {
+				got = append(got, string(ev.Args[0].Value))
+			}
+		case *cdproto.Message:
+			replies++
+		}
+	})
+	for _, s := range []string{"one", "two"} {
+		if err := Do(ctx, Evaluate[Void](`console.log("`+s+`")`)); err != nil {
+			t.Fatal(err)
+		}
+		mu.Lock()
+		n := len(got)
+		mu.Unlock()
+		if want := `"` + s + `"`; n == 0 || got[n-1] != want {
+			t.Fatalf("when Run returned, the listener had %q, want %s last", got, want)
+		}
+	}
+	mu.Lock()
+	if replies != 0 {
+		t.Errorf("the listener got %d replies to commands, want only events", replies)
+	}
+	mu.Unlock()
+
+	// After the cancel, the listener gets nothing more.
+	lcancel()
+	if err := Do(ctx, Evaluate[Void](`console.log("three")`)); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(got) != 2 {
+		t.Errorf("after the cancel, the listener had %q, want the two events before it", got)
+	}
 }
 
 func TestCallInvalidContext(t *testing.T) {

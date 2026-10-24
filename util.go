@@ -335,3 +335,14 @@ func isCouldNotComputeBoxModelError(err error) bool {
 func ptr[T any](v T) *T {
 	return &v
 }
+
+// eventsOnly wraps fn so that it gets the events and not the replies to
+// commands, which go to the same listeners.
+func eventsOnly(fn func(ev any)) func(ev any) {
+	return func(ev any) {
+		if _, ok := ev.(*cdproto.Message); ok {
+			return
+		}
+		fn(ev)
+	}
+}

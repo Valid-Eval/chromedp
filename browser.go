@@ -243,6 +243,17 @@ func (b *Browser) Subscribe(method string) (<-chan jsonv2.Value, func()) {
 	return b.events.subscribe(method)
 }
 
+// Listen adds fn, which the browser calls with each browser event that it
+// receives, as the typed payload of the event, for example
+// *target.EventTargetCreated. The browser calls fn synchronously in its event
+// loop, in the order of the events, and before it handles the reply to a
+// command that the browser sent after the event. So fn must not block, and it
+// must not send a command and wait for the reply. Canceling ctx stops the
+// calls. See [Target.Listen].
+func (b *Browser) Listen(ctx context.Context, fn func(ev any)) {
+	b.listen(ctx, eventsOnly(fn))
+}
+
 func (b *Browser) execute(ctx context.Context, method string, params, res any) error {
 	id := atomic.AddInt64(&b.next, 1)
 	lctx, cancel := context.WithCancel(ctx)
